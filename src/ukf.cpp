@@ -59,13 +59,13 @@ UKF::UKF() {
     Q_ << std_a_ * std_a_, 0,
             0, std_yawdd_ * std_yawdd_;
 
-    /**
-    TODO:
+    H_laser_ = MatrixXd(2, 5);
+    H_laser_ << 1, 0, 0, 0, 0,
+            0, 1, 0, 0, 0;
 
-    Complete the initialization. See ukf.h for other member properties.
-
-    Hint: one or more values initialized above might be wildly off...
-    */
+    R_laser_ = MatrixXd(2, 2);
+    R_laser_ << 0.0225, 0,
+            0, 0.0225;
 }
 
 UKF::~UKF() {}
@@ -221,12 +221,24 @@ void UKF::Prediction(double delta_t) {
 void UKF::UpdateLidar(MeasurementPackage measurement_pack) {
     /**
     TODO:
-
-    Complete this function! Use lidar data to update the belief about the object's
-    position. Modify the state vector, x_, and covariance, P_.
-
-    You'll also need to calculate the lidar NIS.
+    calculate the lidar NIS.
     */
+
+    VectorXd z = measurement_pack.raw_measurements_;
+
+    VectorXd z_pred = H_laser_ * x_;
+    VectorXd y = z - z_pred;
+    MatrixXd Ht = H_laser_.transpose();
+    MatrixXd S = H_laser_ * P_ * Ht + R_laser_;
+    MatrixXd Si = S.inverse();
+    MatrixXd PHt = P_ * Ht;
+    MatrixXd K = PHt * Si;
+
+    //new estimate
+    x_ = x_ + (K * y);
+    long x_size = x_.size();
+    MatrixXd I = MatrixXd::Identity(x_size, x_size);
+    P_ = (I - K * H_laser_) * P_;
 }
 
 /**

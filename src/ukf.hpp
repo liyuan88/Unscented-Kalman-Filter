@@ -21,6 +21,10 @@ public:
     ///* process noise
     Eigen::MatrixXd Q_;
 
+    Eigen::MatrixXd H_laser_;
+
+    Eigen::MatrixXd R_laser_;
+
     ///* augumented state vector
     Eigen::VectorXd x_aug;
 
