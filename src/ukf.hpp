@@ -12,23 +12,32 @@ public:
     ///* initially set to false, set to true in first call of ProcessMeasurement
     bool is_initialized_;
 
-    ///* if this is false, laser measurements will be ignored (except for init)
-    bool use_laser_;
-
-    ///* if this is false, radar measurements will be ignored (except for init)
-    bool use_radar_;
-
     ///* state vector: [pos1 pos2 vel_abs yaw_angle yaw_rate] in SI units and rad
     Eigen::VectorXd x_;
 
     ///* state covariance matrix
     Eigen::MatrixXd P_;
 
+    ///* process noise
+    Eigen::MatrixXd Q_;
+
+    ///* augumented state vector
+    Eigen::VectorXd x_aug;
+
+    ///* augumented state covariance matrix
+    Eigen::MatrixXd P_aug;
+
     ///* predicted sigma points matrix
     Eigen::MatrixXd Xsig_pred_;
 
+    ///* Sigma points
+    Eigen::MatrixXd Xsig_;
+
     ///* time when the state is true, in us
     long time_us_;
+
+    ///* previous_timestamp
+    long previous_timestamp_;
 
     ///* Process noise standard deviation longitudinal acceleration in m/s^2
     double std_a_;
@@ -84,7 +93,7 @@ public:
      * @param meas_package The latest measurement data of either radar or laser
      * @param gt_package The ground truth of the state x at measurement time
      */
-    void ProcessMeasurement(MeasurementPackage meas_package);
+    void ProcessMeasurement(MeasurementPackage measurement_pack);
 
     /**
      * Prediction Predicts sigma points, the state, and the state covariance
@@ -97,13 +106,13 @@ public:
      * Updates the state and the state covariance matrix using a laser measurement
      * @param meas_package The measurement at k+1
      */
-    void UpdateLidar(MeasurementPackage meas_package);
+    void UpdateLidar(MeasurementPackage measurement_pack);
 
     /**
      * Updates the state and the state covariance matrix using a radar measurement
      * @param meas_package The measurement at k+1
      */
-    void UpdateRadar(MeasurementPackage meas_package);
+    void UpdateRadar(MeasurementPackage measurement_pack);
 };
 
 #endif //UNSCENTED_KALMAN_FILTER_UKF_HPP
