@@ -25,6 +25,8 @@ public:
 
     Eigen::MatrixXd R_laser_;
 
+    Eigen::MatrixXd R_radar_;
+
     ///* augumented state vector
     Eigen::VectorXd x_aug;
 
@@ -36,6 +38,10 @@ public:
 
     ///* Sigma points
     Eigen::MatrixXd Xsig_;
+
+    Eigen::MatrixXd Zsig_;
+
+    int n_z_radar_;
 
     ///* time when the state is true, in us
     long time_us_;
