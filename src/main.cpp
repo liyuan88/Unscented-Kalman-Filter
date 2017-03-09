@@ -15,8 +15,8 @@ using Eigen::VectorXd;
 using std::vector;
 
 bool verbose = false;
-bool useRadar = false;
-bool useLidar = false;
+bool useOnlyRadar = false;
+bool useOnlyLidar = false;
 string in_file_name_ = "";
 string out_file_name_ = "";
 
@@ -31,8 +31,8 @@ void parseOptions(int argc, char *argv[]){
                 ("i,input", "Input File", cxxopts::value<std::string>())
                 ("o,output", "Output file", cxxopts::value<std::string>())
                 ("v,verbose", "verbose flag", cxxopts::value<bool>(verbose))
-                ("r,radar", "use only radar data", cxxopts::value<bool>(useRadar))
-                ("l,lidar", "use only lidar data", cxxopts::value<bool>(useLidar));
+                ("r,radar", "use only radar data", cxxopts::value<bool>(useOnlyRadar))
+                ("l,lidar", "use only lidar data", cxxopts::value<bool>(useOnlyLidar));
 
         vector<string> optionals = {"input", "output"};
         options.parse_positional(optionals);
@@ -93,7 +93,7 @@ void readData(ifstream &in_file_, vector<MeasurementPackage> &measurement_pack_l
         iss >> sensor_type;
         if (sensor_type.compare("L") == 0) {
             // LASER MEASUREMENT
-            if(useRadar){
+            if(useOnlyRadar){
                 continue;
             }
 
@@ -110,7 +110,7 @@ void readData(ifstream &in_file_, vector<MeasurementPackage> &measurement_pack_l
             measurement_pack_list.push_back(meas_package);
         } else if (sensor_type.compare("R") == 0) {
             // RADAR MEASUREMENT
-            if(useLidar){
+            if(useOnlyLidar){
                 continue;
             }
 
@@ -155,20 +155,21 @@ void processData(ofstream &out_file_, const vector<MeasurementPackage> &measurem
     for (size_t k = 0; k < N; ++k) {
         // Call the UKF-based fusion
         ukf.ProcessMeasurement(measurement_pack_list[k]);
+        MeasurementPackage::SensorType sensorType = measurement_pack_list[k].sensor_type_;
 
         // output the estimation
         out_file_ << ukf.x_(0) << "\t"; // pos1 - est
         out_file_ << ukf.x_(1) << "\t"; // pos2 - est
-        out_file_ << ukf.x_(2) << "\t"; // vel_abs -est
-        out_file_ << ukf.x_(3) << "\t"; // yaw_angle -est
-        out_file_ << ukf.x_(4) << "\t"; // yaw_rate -est
+        out_file_ << ukf.x_(2) << "\t"; // vel_abs - est
+        out_file_ << ukf.x_(3) << "\t"; // yaw_angle - est
+        out_file_ << ukf.x_(4) << "\t"; // yaw_rate - est
 
         // output the measurements
-        if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::LASER) {
+        if (sensorType == MeasurementPackage::LASER) {
             // output the estimation
             out_file_ << measurement_pack_list[k].raw_measurements_(0) << "\t";
             out_file_ << measurement_pack_list[k].raw_measurements_(1) << "\t";
-        } else if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::RADAR) {
+        } else if (sensorType == MeasurementPackage::RADAR) {
             // output the estimation in the cartesian coordinates
             double ro = measurement_pack_list[k].raw_measurements_(0);
             double phi = measurement_pack_list[k].raw_measurements_(1);
@@ -177,18 +178,48 @@ void processData(ofstream &out_file_, const vector<MeasurementPackage> &measurem
         }
 
         // output the ground truth packages
-        out_file_ << gt_pack_list[k].gt_values_(0) << "\t";
-        out_file_ << gt_pack_list[k].gt_values_(1) << "\t";
-        out_file_ << gt_pack_list[k].gt_values_(2) << "\t";
-        out_file_ << gt_pack_list[k].gt_values_(3) << "\n";
+        double x_gt;
+        double y_gt;
+        double vx_gt;
+        double vy_gt;
+        double v_gt;
+        double yaw_gt;
+        double yaw_rate_gt;
+
+        x_gt = gt_pack_list[k].gt_values_(0);
+        y_gt = gt_pack_list[k].gt_values_(1);
+        vx_gt = gt_pack_list[k].gt_values_(2);
+        vy_gt = gt_pack_list[k].gt_values_(3);
+        v_gt = sqrt(vx_gt * vx_gt + vy_gt * vy_gt);
+        yaw_gt = fabs(vx_gt) > 0.0001 ? atan(vy_gt / vx_gt) : 0;
+        yaw_rate_gt = 0;
+
+        out_file_ << x_gt << "\t";
+        out_file_ << y_gt << "\t";
+        out_file_ << v_gt << "\t";
+        out_file_ << yaw_gt << "\t";
+        out_file_ << yaw_rate_gt << "\t";
+        out_file_ << vx_gt << "\t";
+        out_file_ << vy_gt << "\t";
+
+        // output nis
+        out_file_ << ukf.NIS_laser_ << "\t";
+        out_file_ << ukf.NIS_radar_ << endl;
 
         estimations.push_back(ukf.x_.head(2));
         ground_truth.push_back(gt_pack_list[k].gt_values_.head(2));
 
         if(verbose){
-            cout << "***** Entry: " << (k + 1) << " *****\n" << endl;
-            cout << "x_ = " << ukf.x_ << "\n" << endl;
-            cout << "P_ = " << ukf.P_ << "\n" << endl;
+            cout << "***** Entry: " << (k + 1) << " *****" << endl << endl;
+            cout << "SensorType = " << (sensorType == MeasurementPackage::LASER ? "Laser" : "Radar") << endl << endl;
+            cout << "x_ = " << ukf.x_ << endl << endl;
+            cout << "P_ = " << ukf.P_ << endl << endl;
+
+            if (sensorType == MeasurementPackage::LASER) {
+                cout << "NIS Laser = " << ukf.NIS_laser_ << endl << endl;
+            } else if (sensorType == MeasurementPackage::RADAR) {
+                cout << "NIS Radar = " << ukf.NIS_radar_ << endl << endl;
+            }
         }
     }
 }

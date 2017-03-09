@@ -43,10 +43,7 @@ public:
 
     int n_z_radar_;
 
-    ///* time when the state is true, in us
-    long time_us_;
-
-    ///* previous_timestamp
+    ///* previous_timestamp  in us
     long previous_timestamp_;
 
     ///* Process noise standard deviation longitudinal acceleration in m/s^2

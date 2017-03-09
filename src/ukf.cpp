@@ -20,26 +20,26 @@ UKF::UKF() {
 
     // Process noise standard deviation longitudinal acceleration in m/s^2
     // TODO find good value
-    std_a_ = 0.1;
+    std_a_ = 3;
 
     // Process noise standard deviation yaw acceleration in rad/s^2
     // TODO find good value
-    std_yawdd_ = 0.1;
+    std_yawdd_ = 0.05;
 
     // Laser measurement noise standard deviation position1 in m
-    std_laspx_ = 0.15;
+    std_laspx_ = 0.0175;
 
     // Laser measurement noise standard deviation position2 in m
-    std_laspy_ = 0.15;
+    std_laspy_ = 0.0175;
 
     // Radar measurement noise standard deviation radius in m
     std_radr_ = 0.3;
 
     // Radar measurement noise standard deviation angle in rad
-    std_radphi_ = 0.03;
+    std_radphi_ = 0.05;
 
     // Radar measurement noise standard deviation radius change in m/s
-    std_radrd_ = 0.3;
+    std_radrd_ = 0.2;
 
     n_x_ = 5;
 
@@ -228,15 +228,10 @@ void UKF::Prediction(double delta_t) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateLidar(MeasurementPackage measurement_pack) {
-    /**
-    TODO:
-    calculate the lidar NIS.
-    */
-
     VectorXd z = measurement_pack.raw_measurements_;
 
     VectorXd z_pred = H_laser_ * x_;
-    VectorXd y = z - z_pred;
+    VectorXd z_diff = z - z_pred;
     MatrixXd Ht = H_laser_.transpose();
     MatrixXd S = H_laser_ * P_ * Ht + R_laser_;
     MatrixXd Si = S.inverse();
@@ -244,10 +239,12 @@ void UKF::UpdateLidar(MeasurementPackage measurement_pack) {
     MatrixXd K = PHt * Si;
 
     //new estimate
-    x_ = x_ + (K * y);
+    x_ = x_ + (K * z_diff);
     long x_size = x_.size();
     MatrixXd I = MatrixXd::Identity(x_size, x_size);
     P_ = (I - K * H_laser_) * P_;
+
+    NIS_laser_ = z_diff.transpose() * Si * z_diff;
 }
 
 /**
@@ -350,4 +347,6 @@ void UKF::UpdateRadar(MeasurementPackage measurement_pack) {
     //update state mean and covariance matrix
     x_ = x_ + K * z_diff;
     P_ = P_ - K * S * K.transpose();
+
+    NIS_radar_ = z_diff.transpose() * S.inverse() * z_diff;
 }
