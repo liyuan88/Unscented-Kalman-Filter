@@ -4,10 +4,10 @@
 
 namespace tools {
     Eigen::VectorXd CalculateRMSE(const std::vector<Eigen::VectorXd> &estimations,
-                                  const std::vector<Eigen::VectorXd> &ground_truth) {
+                                  const std::vector<Eigen::VectorXd> &groundTruth) {
 
 
-        if (estimations.size() == 0 || estimations.size() != ground_truth.size()) {
+        if (estimations.size() == 0 || estimations.size() != groundTruth.size()) {
             throw std::invalid_argument( "CalculateRMSE () - Error: Invalid input values." );
         }
 
@@ -15,7 +15,7 @@ namespace tools {
         rmse.fill(0.0d);
 
         for (int i = 0; i < estimations.size(); ++i) {
-            Eigen::VectorXd res = estimations[i] - ground_truth[i];
+            Eigen::VectorXd res = estimations[i] - groundTruth[i];
             res = res.array() * res.array();
             rmse += res;
         }

@@ -8,47 +8,70 @@ using Eigen::MatrixXd;
  * Initializes Unscented Kalman filter
  */
 UKF::UKF() {
-    is_initialized_ = false;
-
-    // initial state vector
-    x_ = VectorXd(5);
-    x_aug = VectorXd(7);
-
-    // initial covariance matrix
-    P_ = MatrixXd(5, 5);
-    P_ << 1, 0, 0, 0, 0,
-            0, 1, 0, 0, 0,
-            0, 0, 10, 0, 0,
-            0, 0, 0, 10, 0,
-            0, 0, 0, 0, 10;
-    P_aug = MatrixXd(7, 7);
+    /*****************************************************************************
+     *  Process noise
+     ****************************************************************************/
 
     // Process noise standard deviation longitudinal acceleration in m/s^2
-    std_a_ = 0.1;
+    std_a_ = 0.75;
 
     // Process noise standard deviation yaw acceleration in rad/s^2
-    std_yawdd_ = 0.005;
+    std_yawdd_ = 1.2;
+
+    /*****************************************************************************
+     *  Laser measurement noise
+     ****************************************************************************/
 
     // Laser measurement noise standard deviation position1 in m
-    std_laspx_ = 0.045;
+    std_laspx_ = 0.0225;
 
     // Laser measurement noise standard deviation position2 in m
-    std_laspy_ = 0.045;
+    std_laspy_ = 0.0225;
+
+    /*****************************************************************************
+     *  Radar measurement noise
+     ****************************************************************************/
 
     // Radar measurement noise standard deviation radius in m
-    std_radr_ = 0.175;
+    std_radr_ = 0.09;
 
     // Radar measurement noise standard deviation angle in rad
-    std_radphi_ = 0.01;
+    std_radphi_ = 0.0009;
 
     // Radar measurement noise standard deviation radius change in m/s
-    std_radrd_ = 0.1;
+    std_radrd_ = 0.09;
+
+    /*****************************************************************************
+     *  Initialisation
+     ****************************************************************************/
+
+    is_initialized_ = false;
 
     n_x_ = 5;
 
     n_aug_ = n_x_ + 2;
 
     lambda_ = 3 - n_aug_;
+
+    // initial state vector
+    x_ = VectorXd(5);
+    x_aug = VectorXd(7);
+
+    Q_ = MatrixXd(2, 2);
+    Q_ << std_a_ * std_a_, 0,
+            0, std_yawdd_ * std_yawdd_;
+
+    // initial covariance matrix
+    P_ = MatrixXd(5, 5);
+    P_ << 1, 0, 0, 0, 0,
+            0, 1, 0, 0, 0,
+            0, 0, 1000, 0, 0,
+            0, 0, 0, 100, 0,
+            0, 0, 0, 0, 1;
+
+    P_aug = MatrixXd(7, 7);
+    P_aug.topLeftCorner(n_x_, n_x_) = P_;
+    P_aug.bottomRightCorner(Q_.rows(), Q_.cols()) = Q_;
 
     weights_ = VectorXd(2 * n_aug_ + 1);
     weights_.segment(1, 2 * n_aug_).fill(0.5d / (n_aug_ + lambda_));
@@ -57,10 +80,6 @@ UKF::UKF() {
     //create sigma point matrix
     Xsig_ = MatrixXd(n_aug_, 2 * n_aug_ + 1);
     Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
-
-    Q_ = MatrixXd(2, 2);
-    Q_ << std_a_ * std_a_, 0,
-            0, std_yawdd_ * std_yawdd_;
 
     n_z_radar_ = 3;
     Zsig_ = MatrixXd(n_z_radar_, 2 * n_aug_ + 1);
@@ -94,22 +113,35 @@ void UKF::ProcessMeasurement(MeasurementPackage measurement_pack) {
         // first measurement
         std::cout << "UKF: " << std::endl;
 
-        double p_x = 0;
-        double p_y = 0;
+        double px = 0;
+        double py = 0;
 
         if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
             double rho = measurement_pack.raw_measurements_[0];
             double phi = measurement_pack.raw_measurements_[1];
 
-            p_x = rho * cos(phi);
-            p_y = rho * sin(phi);
+            px = rho * cos(phi);
+            py = rho * sin(phi);
+
+            // If initial values are zero they will set to an initial guess
+            // and the uncertainty will be increased.
+            // Initial zeros would cause the algorithm to fail when using only Radar data.
+            if(fabs(px) < 0.0001){
+                px = 1;
+                P_(0,0) = 1000;
+            }
+            if(fabs(py) < 0.0001){
+                py = 1;
+                P_(1,1) = 1000;
+            }
 
         } else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
-            p_x = measurement_pack.raw_measurements_[0];
-            p_y = measurement_pack.raw_measurements_[1];
+            px = measurement_pack.raw_measurements_[0];
+            py = measurement_pack.raw_measurements_[1];
         }
 
-        x_ << p_x, p_y, 0, 0, 0;
+        x_ << px, py, 0, 0, 0;
+        x_aug << x_.array(), 0, 0;
         previous_timestamp_ = measurement_pack.timestamp_;
 
         is_initialized_ = true;
@@ -255,37 +287,29 @@ void UKF::UpdateLidar(MeasurementPackage measurement_pack) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateRadar(MeasurementPackage measurement_pack) {
-    /**
-    TODO:
-     calculate the radar NIS.
-    */
-
     //transform sigma points into measurement space
     for (int i = 0; i < 2 * n_aug_ + 1; i++) {
 
         // extract values for better readibility
-        double p_x = Xsig_pred_(0, i);
-        double p_y = Xsig_pred_(1, i);
+        double px = Xsig_pred_(0, i);
+        double py = Xsig_pred_(1, i);
         double v = Xsig_pred_(2, i);
         double yaw = Xsig_pred_(3, i);
 
-        double v_y = cos(yaw) * v;
-        double v_x = sin(yaw) * v;
+        double vy = cos(yaw) * v;
+        double vx = sin(yaw) * v;
 
-        // measurement model
-        double rho = sqrt(p_x * p_x + p_y * p_y);
-        double phi = atan2(p_y, p_x);
-        double rho_dot = (p_x * v_y + p_y * v_x) / rho;
+        if(fabs(px) < 0.0001){
+            px = 0.0001;
+        }
 
-        if (rho != rho) {
-            rho = 0;
+        double rho = sqrt(px*px + py*py);
+        if(fabs(rho) < 0.0001){
+            rho = 0.0001;
         }
-        if (phi != phi) {
-            phi = 0;
-        }
-        if (rho_dot != rho_dot) {
-            rho_dot = 0;
-        }
+
+        double phi = atan(py/px);
+        double rho_dot = (px*vx + py*vy)/rho;
 
         Zsig_(0, i) = rho;
         Zsig_(1, i) = phi;
