@@ -13,7 +13,7 @@ UKF::UKF() {
      ****************************************************************************/
 
     // Process noise standard deviation longitudinal acceleration in m/s^2
-    std_a_ = 0.75;
+    std_a_ = .63;
 
     // Process noise standard deviation yaw acceleration in rad/s^2
     std_yawdd_ = 1.2;
@@ -33,13 +33,13 @@ UKF::UKF() {
      ****************************************************************************/
 
     // Radar measurement noise standard deviation radius in m
-    std_radr_ = 0.09;
+    std_radr_ = 0.9;
 
     // Radar measurement noise standard deviation angle in rad
-    std_radphi_ = 0.0009;
+    std_radphi_ = 0.005;
 
     // Radar measurement noise standard deviation radius change in m/s
-    std_radrd_ = 0.09;
+    std_radrd_ = 0.5;
 
     /*****************************************************************************
      *  Initialisation
