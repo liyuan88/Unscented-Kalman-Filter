@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "lib/Eigen/Dense"
+#include "measurement_package.hpp"
 
 namespace tools {
 
@@ -11,6 +12,8 @@ namespace tools {
     */
     Eigen::VectorXd
     CalculateRMSE(const std::vector<Eigen::VectorXd> &estimations, const std::vector<Eigen::VectorXd> &groundTruth);
+
+    float CalculateNISPerformance(const std::vector<float> &nis_values, MeasurementPackage::SensorType sensorType);
 
 };
 

@@ -291,25 +291,28 @@ void UKF::UpdateRadar(MeasurementPackage measurement_pack) {
     for (int i = 0; i < 2 * n_aug_ + 1; i++) {
 
         // extract values for better readibility
-        double px = Xsig_pred_(0, i);
-        double py = Xsig_pred_(1, i);
+        double p_x = Xsig_pred_(0, i);
+        double p_y = Xsig_pred_(1, i);
         double v = Xsig_pred_(2, i);
         double yaw = Xsig_pred_(3, i);
 
-        double vy = cos(yaw) * v;
-        double vx = sin(yaw) * v;
+        double v_y = cos(yaw) * v;
+        double v_x = sin(yaw) * v;
 
-        if(fabs(px) < 0.0001){
-            px = 0.0001;
+        // measurement model
+        double rho = sqrt(p_x * p_x + p_y * p_y);
+        double phi = atan2(p_y, p_x);
+        double rho_dot = (p_x * v_y + p_y * v_x) / rho;
+
+        if (rho != rho) {
+            rho = 0;
         }
-
-        double rho = sqrt(px*px + py*py);
-        if(fabs(rho) < 0.0001){
-            rho = 0.0001;
+        if (phi != phi) {
+            phi = 0;
         }
-
-        double phi = atan(py/px);
-        double rho_dot = (px*vx + py*vy)/rho;
+        if (rho_dot != rho_dot) {
+            rho_dot = 0;
+        }
 
         Zsig_(0, i) = rho;
         Zsig_(1, i) = phi;

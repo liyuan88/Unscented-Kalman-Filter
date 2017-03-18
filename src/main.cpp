@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <iomanip>
 #include "lib/Eigen/Dense"
 #include "tools.hpp"
 #include "ground_truth_package.hpp"
@@ -190,6 +191,8 @@ void processStream(ifstream &in_file_, ofstream &out_file_) {
     UKF ukf;
     vector<VectorXd> estimations;
     vector<VectorXd> ground_truth;
+    vector<float> radar_nis_values;
+    vector<float> lidar_nis_values;
     string line;
     int cnt = 0;
 
@@ -202,10 +205,11 @@ void processStream(ifstream &in_file_, ofstream &out_file_) {
         auto lineParsed = parseLine(line);
         auto meas_package = get<0>(lineParsed);
         auto gt_package = get<1>(lineParsed);
+        auto sensorType = meas_package.sensor_type_;
 
-        if (useOnlyRadar & meas_package.sensor_type_ == MeasurementPackage::LASER) {
+        if (useOnlyRadar & sensorType == MeasurementPackage::LASER) {
             continue;
-        } else if (useOnlyLidar & meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+        } else if (useOnlyLidar & sensorType == MeasurementPackage::RADAR) {
             continue;
         }
 
@@ -215,9 +219,13 @@ void processStream(ifstream &in_file_, ofstream &out_file_) {
 
         estimations.push_back(ukf.x_.head(2));
         ground_truth.push_back(gt_package.gt_values_.head(2));
+        if (sensorType == MeasurementPackage::LASER) {
+            lidar_nis_values.push_back(ukf.NIS_laser_);
+        } else if (sensorType == MeasurementPackage::RADAR) {
+            radar_nis_values.push_back(ukf.NIS_radar_);
+        }
 
         if (verbose) {
-            auto sensorType = meas_package.sensor_type_;
             cout << "***** Entry: " << cnt++ << " *****" << endl << endl;
             cout << "SensorType = " << (sensorType == MeasurementPackage::LASER ? "Laser" : "Radar") << endl << endl;
             cout << "x_ = " << ukf.x_ << endl << endl;
@@ -232,7 +240,12 @@ void processStream(ifstream &in_file_, ofstream &out_file_) {
     }
 
     // compute the accuracy (RMSE)
-    cout << "Accuracy - RMSE:" << endl << tools::CalculateRMSE(estimations, ground_truth) << endl;
+    cout << "Accuracy - RMSE:" << endl << tools::CalculateRMSE(estimations, ground_truth) << endl << endl;
+    cout << "NIS Radar: " << setprecision(4) << setw(4)
+         << tools::CalculateNISPerformance(radar_nis_values, MeasurementPackage::RADAR)*100 << '%' << endl;
+    cout << "NIS Lidar: " << setprecision(4) << setw(4)
+         << tools::CalculateNISPerformance(lidar_nis_values, MeasurementPackage::LASER)*100 << '%' << endl;
+
 }
 
 
